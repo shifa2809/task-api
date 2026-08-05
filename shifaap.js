@@ -68,7 +68,7 @@ app.post('/tasks', (req, res) => {
 // Update an existing task
 app.put('/tasks/:id', (req, res) => {
   const id = Number(req.params.id);
-  const task = tasks.find(t => t.id === id);
+  const task = db.prepare('SELECT * FROM tasks WHERE id = ?').get(id);
 
   if (!task) {
     return res.status(404).json({ error: `Task ${id} not found` });
@@ -76,7 +76,6 @@ app.put('/tasks/:id', (req, res) => {
 
   const { title, done } = req.body;
 
-  // Reject a body that offers nothing valid to update
   if (title === undefined && done === undefined) {
     return res.status(400).json({ error: 'Provide title and/or done' });
   }
@@ -84,23 +83,25 @@ app.put('/tasks/:id', (req, res) => {
     return res.status(400).json({ error: 'Title cannot be empty' });
   }
 
-  // Update only the fields that were provided
-  if (title !== undefined) task.title = title;
-  if (done !== undefined) task.done = done;
+  // Use the new value if provided, otherwise keep the existing one
+  const newTitle = title !== undefined ? title : task.title;
+  const newDone = done !== undefined ? (done ? 1 : 0) : task.done;
 
-  res.json(task);
+  db.prepare('UPDATE tasks SET title = ?, done = ? WHERE id = ?').run(newTitle, newDone, id);
+
+  const updatedTask = db.prepare('SELECT * FROM tasks WHERE id = ?').get(id);
+  res.json(updatedTask);
 });
-
 // Delete a task
 app.delete('/tasks/:id', (req, res) => {
   const id = Number(req.params.id);
-  const index = tasks.findIndex(t => t.id === id);
 
-  if (index === -1) {
+  const result = db.prepare('DELETE FROM tasks WHERE id = ?').run(id);
+
+  if (result.changes === 0) {
     return res.status(404).json({ error: `Task ${id} not found` });
   }
 
-  tasks.splice(index, 1);
   res.status(204).send();
 });
 
