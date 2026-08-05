@@ -7,13 +7,27 @@ const swaggerUi = require('swagger-ui-express');
 const openapiDoc = require('./openapi.json');
 app.use('/docs', swaggerUi.serve, swaggerUi.setup(openapiDoc));
 
-const tasks = [
-  { id: 1, title: 'Buy groceries', done: false },
-  { id: 2, title: 'Finish assignment', done: false },
-  { id: 3, title: 'Call the dentist', done: true }
-];
+// Connect to the SQLite database (creates tasks.db if it doesn't exist)
+const Database = require('better-sqlite3');
+const db = new Database('tasks.db');
 
-app.get('/', (req, res) => {
+// Create the tasks table if it doesn't already exist
+db.exec(`
+  CREATE TABLE IF NOT EXISTS tasks (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    title TEXT NOT NULL,
+    done BOOLEAN NOT NULL DEFAULT 0
+  )
+`);
+
+// Insert 3 example tasks ONLY if the table is empty
+const count = db.prepare('SELECT COUNT(*) AS n FROM tasks').get();
+if (count.n === 0) {
+  const insert = db.prepare('INSERT INTO tasks (title, done) VALUES (?, ?)');
+  insert.run('Buy groceries', 0);
+  insert.run('Finish assignment', 0);
+  insert.run('Call the dentist', 1);
+}app.get('/', (req, res) => {
   res.json({
     name: 'Task API',
     version: '1.0',
