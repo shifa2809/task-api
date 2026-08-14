@@ -47,13 +47,14 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok' });
 });
 
-app.get('/tasks', (req, res) => {
-  const tasks = db.prepare('SELECT * FROM tasks').all();
-  res.json(tasks);
+app.get('/tasks', async (req, res) => {
+  const result = await pool.query('SELECT * FROM tasks ORDER BY id');
+  res.json(result.rows);
 });
-app.get('/tasks/:id', (req, res) => {
+app.get('/tasks/:id', async (req, res) => {
   const id = Number(req.params.id);
-  const task = db.prepare('SELECT * FROM tasks WHERE id = ?').get(id);
+  const result = await pool.query('SELECT * FROM tasks WHERE id = $1', [id]);
+  const task = result.rows[0];
 
   if (!task) {
     return res.status(404).json({ error: `Task ${id} not found` });
