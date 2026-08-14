@@ -7,27 +7,35 @@ const swaggerUi = require('swagger-ui-express');
 const openapiDoc = require('./openapi.json');
 app.use('/docs', swaggerUi.serve, swaggerUi.setup(openapiDoc));
 
-// Connect to the SQLite database (creates tasks.db if it doesn't exist)
-const Database = require('better-sqlite3');
-const db = new Database('tasks.db');
+// Load environment variables from .env
+require('dotenv').config();
 
-// Create the tasks table if it doesn't already exist
-db.exec(`
-  CREATE TABLE IF NOT EXISTS tasks (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    title TEXT NOT NULL,
-    done BOOLEAN NOT NULL DEFAULT 0
-  )
-`);
+// Connect to Postgres using the connection string from .env
+const { Pool } = require('pg');
+const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 
-// Insert 3 example tasks ONLY if the table is empty
-const count = db.prepare('SELECT COUNT(*) AS n FROM tasks').get();
-if (count.n === 0) {
-  const insert = db.prepare('INSERT INTO tasks (title, done) VALUES (?, ?)');
-  insert.run('Buy groceries', 0);
-  insert.run('Finish assignment', 0);
-  insert.run('Call the dentist', 1);
-}app.get('/', (req, res) => {
+// On startup: create the tasks table if missing, seed 3 tasks if empty
+async function initDb() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS tasks (
+      id SERIAL PRIMARY KEY,
+      title TEXT NOT NULL,
+      done BOOLEAN NOT NULL DEFAULT false
+    )
+  `);
+
+  const result = await pool.query('SELECT COUNT(*) FROM tasks');
+  if (parseInt(result.rows[0].count) === 0) {
+    await pool.query(
+      `INSERT INTO tasks (title, done) VALUES
+        ('Buy groceries', false),
+        ('Finish assignment', false),
+        ('Call the dentist', true)`
+    );
+  }
+}
+initDb();
+app.get('/', (req, res) => {
   res.json({
     name: 'Task API',
     version: '1.0',
