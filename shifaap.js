@@ -62,22 +62,26 @@ app.get('/tasks/:id', async (req, res) => {
 
   res.json(task);
 });
-app.post('/tasks', (req, res) => {
+app.post('/tasks', async (req, res) => {
   const { title } = req.body;
 
   if (!title || title.trim() === '') {
     return res.status(400).json({ error: 'Title is required' });
   }
 
-  const result = db.prepare('INSERT INTO tasks (title, done) VALUES (?, ?)').run(title, 0);
-  const newTask = db.prepare('SELECT * FROM tasks WHERE id = ?').get(result.lastInsertRowid);
+  const result = await pool.query(
+    'INSERT INTO tasks (title, done) VALUES ($1, $2) RETURNING *',
+    [title, false]
+  );
 
-  res.status(201).json(newTask);
+  res.status(201).json(result.rows[0]);
 });
 // Update an existing task
-app.put('/tasks/:id', (req, res) => {
+app.put('/tasks/:id', async (req, res) => {
   const id = Number(req.params.id);
-  const task = db.prepare('SELECT * FROM tasks WHERE id = ?').get(id);
+
+  const existing = await pool.query('SELECT * FROM tasks WHERE id = $1', [id]);
+  const task = existing.rows[0];
 
   if (!task) {
     return res.status(404).json({ error: `Task ${id} not found` });
@@ -92,28 +96,29 @@ app.put('/tasks/:id', (req, res) => {
     return res.status(400).json({ error: 'Title cannot be empty' });
   }
 
-  // Use the new value if provided, otherwise keep the existing one
   const newTitle = title !== undefined ? title : task.title;
-  const newDone = done !== undefined ? (done ? 1 : 0) : task.done;
+  const newDone = done !== undefined ? done : task.done;
 
-  db.prepare('UPDATE tasks SET title = ?, done = ? WHERE id = ?').run(newTitle, newDone, id);
+  const result = await pool.query(
+    'UPDATE tasks SET title = $1, done = $2 WHERE id = $3 RETURNING *',
+    [newTitle, newDone, id]
+  );
 
-  const updatedTask = db.prepare('SELECT * FROM tasks WHERE id = ?').get(id);
-  res.json(updatedTask);
+  res.json(result.rows[0]);
 });
-// Delete a task
-app.delete('/tasks/:id', (req, res) => {
+
+ // Delete a task
+app.delete('/tasks/:id', async (req, res) => {
   const id = Number(req.params.id);
 
-  const result = db.prepare('DELETE FROM tasks WHERE id = ?').run(id);
+  const result = await pool.query('DELETE FROM tasks WHERE id = $1', [id]);
 
-  if (result.changes === 0) {
+  if (result.rowCount === 0) {
     return res.status(404).json({ error: `Task ${id} not found` });
   }
 
   res.status(204).send();
 });
-
 app.listen(port, () => {
   console.log(`Example app listening on port ${port}`);
 });
