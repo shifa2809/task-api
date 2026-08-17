@@ -15,24 +15,38 @@ const { Pool } = require('pg');
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 
 // On startup: create the tasks table if missing, seed 3 tasks if empty
+// On startup: create the tasks table if missing, seed 3 tasks if empty
+// Retries the connection, since the database may take a few seconds to be ready
 async function initDb() {
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS tasks (
-      id SERIAL PRIMARY KEY,
-      title TEXT NOT NULL,
-      done BOOLEAN NOT NULL DEFAULT false
-    )
-  `);
+  const retries = 10;
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS tasks (
+          id SERIAL PRIMARY KEY,
+          title TEXT NOT NULL,
+          done BOOLEAN NOT NULL DEFAULT false
+        )
+      `);
 
-  const result = await pool.query('SELECT COUNT(*) FROM tasks');
-  if (parseInt(result.rows[0].count) === 0) {
-    await pool.query(
-      `INSERT INTO tasks (title, done) VALUES
-        ('Buy groceries', false),
-        ('Finish assignment', false),
-        ('Call the dentist', true)`
-    );
+      const result = await pool.query('SELECT COUNT(*) FROM tasks');
+      if (parseInt(result.rows[0].count) === 0) {
+        await pool.query(
+          `INSERT INTO tasks (title, done) VALUES
+            ('Buy groceries', false),
+            ('Finish assignment', false),
+            ('Call the dentist', true)`
+        );
+      }
+
+      console.log('Database ready');
+      return; // success — stop retrying
+    } catch (err) {
+      console.log(`Database not ready (attempt ${attempt}/${retries}), retrying in 2s...`);
+      await new Promise(resolve => setTimeout(resolve, 2000));
+    }
   }
+  console.error('Could not connect to the database after several attempts');
 }
 initDb();
 app.get('/', (req, res) => {
