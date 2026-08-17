@@ -2,7 +2,7 @@
 
 
 
-A simple REST API for managing tasks, built with Node.js and Express, with data stored in a SQLite database. Supports full CRUD operations (Create, Read, Update, Delete) with proper HTTP status codes, input validation, and interactive Swagger documentation. Task data persists across server restarts.
+A simple REST API for managing tasks, built with Node.js and Express, running against a PostgreSQL database in Docker. Supports full CRUD operations with proper HTTP status codes, input validation, and interactive Swagger documentation. The entire stack — app and database — starts with a single command, and data persists across restarts via a Docker volume.
 
 
 
@@ -10,27 +10,45 @@ A simple REST API for managing tasks, built with Node.js and Express, with data 
 
 
 
-\- Node.js installed
+\- Docker Desktop installed and running
 
 
 
-\## Install \& Run
+\## Run the whole stack (one command)
 
 
 
-npm install
-
-node shifaap.js
-
+docker compose up
 
 
 
 
-The server runs at http://localhost:3000
+
+This builds the app image, starts a PostgreSQL container and the app container together, creates the `tasks` table if missing, and seeds three example tasks on first run. The API runs at http://localhost:3000
 
 
 
-Interactive API docs are available at http://localhost:3000/docs
+To stop: `docker compose down` (your data is kept in a volume).
+
+
+
+\## Environment variables
+
+
+
+Copy `.env.example` to `.env` and adjust if needed:
+
+
+
+DATABASE\_URL=postgres://postgres:yourpassword@localhost:5432/tasks
+
+PORT=3000
+
+
+
+
+
+When running via Docker Compose, the app connects to the database using the service name `db` (configured in `compose.yaml`).
 
 
 
@@ -38,37 +56,33 @@ Interactive API docs are available at http://localhost:3000/docs
 
 
 
-This project uses \*\*SQLite\*\* for data storage.
+This project uses \*\*PostgreSQL\*\*, running in a Docker container.
 
 
 
-\*\*Why SQLite?\*\* It's a lightweight, serverless database stored in a single file — no separate database server to install or configure. That makes it ideal for a small project: zero setup, and the whole database travels with the code.
+\*\*Why Postgres in Docker?\*\* Postgres is a production-grade database server used by a huge share of real backends. Running it in a container means no manual install, identical behavior on any machine, and a throwaway, reproducible setup. A Docker volume keeps the data on disk so it survives container restarts.
 
 
 
-\*\*Where is the data stored?\*\* In a file called `tasks.db` in the project root. It's created automatically the first time you run the server — the `tasks` table is created if it doesn't exist, and three example tasks are inserted only if the table is empty. Your data survives server restarts.
+\*\*Where is the data stored?\*\* In a Docker named volume (`taskdata`), mapped to Postgres's data directory inside the container. The `tasks` table is created automatically on first run, and three example tasks are seeded only if the table is empty.
 
 
 
-\*\*Example SQL query\*\* (run in DB Browser for SQLite):
+\*\*Example SQL query:\*\*
 
 
 
-SELECT \* FROM tasks WHERE done = 1;
+SELECT \* FROM tasks WHERE done = true;
 
 
 
 
 
-This returns only the completed tasks.
+\### Database view
 
 
 
-\### Database viewer
-
-
-
-!\[Database](database.png)
+!\[Database](database-postgres.png)
 
 
 
@@ -76,23 +90,23 @@ This returns only the completed tasks.
 
 
 
-| Method | Path       | Description        | Success | Errors   |
+| Method | Path       | Description        | Success | Errors   | Auth |
 
-|--------|------------|--------------------|---------|----------|
+|--------|------------|--------------------|---------|----------|------|
 
-| GET    | /          | API info           | 200     | —        |
+| GET    | /          | API info           | 200     | —        | No   |
 
-| GET    | /health    | Health check       | 200     | —        |
+| GET    | /health    | Health check       | 200     | —        | No   |
 
-| GET    | /tasks     | List all tasks     | 200     | —        |
+| GET    | /tasks     | List all tasks     | 200     | —        | No   |
 
-| GET    | /tasks/:id | Get one task by id | 200     | 404      |
+| GET    | /tasks/:id | Get one task by id | 200     | 404      | No   |
 
-| POST   | /tasks     | Create a new task  | 201     | 400      |
+| POST   | /tasks     | Create a new task  | 201     | 400      | No   |
 
-| PUT    | /tasks/:id | Update a task      | 200     | 400, 404 |
+| PUT    | /tasks/:id | Update a task      | 200     | 400, 404 | No   |
 
-| DELETE | /tasks/:id | Delete a task      | 204     | 404      |
+| DELETE | /tasks/:id | Delete a task      | 204     | 404      | No   |
 
 
 
@@ -108,21 +122,19 @@ curl -i http://localhost:3000/tasks/1
 
 Response:
 
+
+
 HTTP/1.1 200 OK
 
 X-Powered-By: Express
 
 Content-Type: application/json; charset=utf-8
 
-Content-Length: 41
 
-ETag: W/"29-IJxbGr/MYx26TjA7XbxW+lvJP78"
 
-Date: Wed, 05 Aug 2026 17:10:52 GMT
+{"id":1,"title":"Buy groceries","done":false}
 
-Connection: keep-alive
 
-Keep-Alive: timeout=5
 
 
 
