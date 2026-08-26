@@ -6,7 +6,14 @@ app.use(express.json());
 const swaggerUi = require('swagger-ui-express');
 const openapiDoc = require('./openapi.json');
 app.use('/docs', swaggerUi.serve, swaggerUi.setup(openapiDoc));
-
+const { supabase } = require('./supabaseClient');
+app.get('/test-supabase', async (req, res) => {
+  const { data, error } = await supabase.auth.getSession();
+  if (error) {
+    return res.status(500).json({ error: error.message });
+  }
+  res.json({ message: 'Supabase client is working', data });
+});
 // Load environment variables from .env
 require('dotenv').config();
 
@@ -48,7 +55,7 @@ async function initDb() {
   }
   console.error('Could not connect to the database after several attempts');
 }
-initDb();
+// initDb(); // disabled for A4 — not using own Postgres DB this assignment
 app.get('/', (req, res) => {
   res.json({
     name: 'Task API',
