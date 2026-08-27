@@ -3,12 +3,19 @@
   "info": {
     "title": "Task API",
     "version": "1.0.0",
-    "description": "A simple CRUD API for managing tasks."
+    "description": "A simple CRUD API for managing tasks, with Supabase-backed authentication."
   },
   "servers": [
     { "url": "http://localhost:3000" }
   ],
   "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    },
     "schemas": {
       "Task": {
         "type": "object",
@@ -175,6 +182,135 @@
           "204": { "description": "Task deleted, no content returned" },
           "404": {
             "description": "Task not found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/signup": {
+      "post": {
+        "summary": "Create a new user account",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": { "type": "string", "example": "test@example.com" },
+                  "password": { "type": "string", "example": "password123" }
+                },
+                "required": ["email", "password"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "User created" },
+          "400": {
+            "description": "Missing email or password",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/login": {
+      "post": {
+        "summary": "Log in and receive a JWT",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": { "type": "string", "example": "test@example.com" },
+                  "password": { "type": "string", "example": "password123" }
+                },
+                "required": ["email", "password"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Login successful, returns access and refresh tokens" },
+          "400": {
+            "description": "Missing email or password",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid credentials",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/logout": {
+      "post": {
+        "summary": "Log out the current user",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "204": { "description": "Logged out successfully" },
+          "401": {
+            "description": "Missing or invalid token",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/public/info": {
+      "get": {
+        "summary": "Public info, no auth required",
+        "responses": {
+          "200": { "description": "Public welcome message" }
+        }
+      }
+    },
+    "/protected/profile": {
+      "get": {
+        "summary": "Get the logged-in user's profile",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "User profile data" },
+          "401": {
+            "description": "Missing or invalid token",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/protected/dashboard": {
+      "get": {
+        "summary": "Get the logged-in user's dashboard",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "Dashboard welcome message" },
+          "401": {
+            "description": "Missing or invalid token",
             "content": {
               "application/json": {
                 "schema": { "$ref": "#/components/schemas/Error" }
