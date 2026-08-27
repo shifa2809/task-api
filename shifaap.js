@@ -56,7 +56,7 @@ app.get('/public/info', (req, res) => {
 });
 
 // Protected route - just checks a token was sent (not verified yet)
-app.get('/protected/profile', (req, res) => {
+app.get('/protected/profile', async (req, res) => {
   const authHeader = req.headers['authorization'];
 
   if (!authHeader || !authHeader.startsWith('Bearer ') || authHeader.split(' ')[1] === '') {
@@ -64,11 +64,19 @@ app.get('/protected/profile', (req, res) => {
   }
 
   const token = authHeader.split(' ')[1];
-  // We're not verifying it yet — just confirming one was sent
-  res.status(200).json({ message: 'Token received (not verified yet)', token });
+
+  const { data, error } = await supabase.auth.getUser(token);
+
+  if (error || !data.user) {
+    return res.status(401).json({ error: 'Invalid or expired token' });
+  }
+
+  res.status(200).json({
+    id: data.user.id,
+    email: data.user.email,
+    created_at: data.user.created_at,
+  });
 });
-// Load environment variables from .env
-require('dotenv').config();
 
 // Connect to Postgres using the connection string from .env
 const { Pool } = require('pg');
